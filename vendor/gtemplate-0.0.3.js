@@ -1,0 +1,7 @@
+/**
+ * gtemplate
+ * Author: Darlan Alves <darlan@moovia.com>
+ * Built on 2013-06-17
+ */
+
+!function(a){"use strict";function b(a){return"\\"+e[a]}function c(a){this.compiled=!1,this.setSource(a||"",!1)}var d=/['\n\r\t\u2028\u2029\\]/g,e={"\\":"\\","'":"'","\n":"n","\r":"r","	":"t","\u2028":"u2028","\u2029":"u2029"},f=Array.prototype.slice;c.processors=[];var g=c.prototype;c.create=function(a,b){return new c(a,b)},g.setSource=function(a,b){return this.source=a,b&&this.compile(),this},g.getSource=function(){return this.source},g.render=function(a,b){return this.compiled||this.compile(),this.fn.call("object"==typeof b&&null!==b?b:this,c.processors,a)},c.registerProcessor=function(a,b){return this.processors.push({matcher:a instanceof RegExp?a.source:a,evaluate:"undefined"==typeof b,fn:b}),this},g.compile=function(){for(var a=0,e=c.processors,g=e.length,h="";g>a;a++)h+=e[a].matcher+"|";h+="$";try{h=new RegExp(h,"g")}catch(i){throw new Error("Error on compile preprocessors")}a=0;var j=this.source,k='var __a=function(v){return typeof v==="string"?v:""},__p=arguments[0],data=arguments[1]||{};return \'';j.replace(h,function(){var c=0,h=f.call(arguments),i=h.shift(),l=(h.pop(),h.pop()),m=!1;for(k+=j.slice(a,l).replace(d,b);g>c;c++)if(h[c]){m=h[c],k+=e[c].evaluate?"'+__a("+m+")+'":"'+__a(__p["+c+"].fn(data."+m+"))+'";break}a=l+i.length}),k+="';";try{this.fn=Function(k),this.compiled=!0}catch(i){throw new Error("Failed to build template: "+i)}},a.Template=c}("object"==typeof exports&&exports||this);
