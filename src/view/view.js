@@ -1,55 +1,43 @@
-/**
- * Features:
- * - preprocessors			this.before(fn)
- * - postprocessors			this.after(fn)
- * - matchers				View.match(matcher, [fn])
- * - helpers				View.helper(name, fn)
- * - reactive				this.update(data)
- * - liverange
- * - jQuery/Zepto DOM/Events
- * - lo-dash utilities
- */
-
-/**
- * Properties:
- * - tagName
- * - className[]
- * - id
- * - template (html)
- */
-
-/**
- * Config:
- * - hidden
- * - autoRender
- * - styles
- * - attributes
- */
-
-/**
- * Methods:
- * - constructor(template, options)
- * - initialize
- * - render
- * - select(selector)
- * - getEl
- * - getDomEl
- * - getId
- * - show
- * - hide
- * - destroy
- * - block
- * - unblock
- * - update(data)
- * - append/prepend(el)
- * - insertBefore/After(el)
- */
-
 var root = this,
 	has = {}.hasOwnProperty,
 	emptyFn = function() {},
 	$dom = root.jQuery || root.Zepto || root.ender || root.$,
-	$util = root._ || root.$;
+	_ = root._ || root.$;
+
+var defaultOptions = {
+	evaluate: /\{\[([\s\S]+?)\]\}/,
+	escape: /[\[]{2}([\s\S]+?)[\]]{2}/,
+	interpolate: /[\{]{2}([\s\S]+?)[}]{2}/
+};
+
+var viewOptions = /^attributes|styles|events|hidden$/,
+	eventSplitter = /^(\S+)\s*(.*)$/,
+
+	generalEvents = {
+		click: true,
+		dblclick: true,
+		contextmenu: true,
+		mousedown: true,
+		mouseup: true,
+		mouseenter: true,
+		mouseleave: true,
+		mousemove: true,
+		mouseout: true,
+		mouseover: true,
+		keydown: true,
+		keypress: true,
+		keyup: true,
+		submit: true
+	},
+
+	formEvents = {
+		submit: true
+	},
+
+	inputEvents = {
+		focus: true,
+		blur: true
+	};
 
 var View = extend({
 	statics: {
@@ -68,22 +56,100 @@ var View = extend({
 
 	tagName: 'div',
 	className: false,
-	id: false,
 	template: false,
-	autoRender: false,
 	styles: false,
 	attributes: false,
+	el: false,
+	defaults: false,
+	rendered: false,
+	hidden: false,
 
-	constructor: function(options) {
-		this.initializeTemplate(this.template);
-		this.$before = [];
-		this.$after = [];
-		this.initializeView(options);
-		this.renderView();
-	},
+	// { event: handler }
+	// event:		click .some .selector
+	// event:		mouseover
+	// handler:		'methodName'
+	// handler:		function(){}
+	events: false,
+
+	autoRender: false,
 
 	initialize: emptyFn,
 	render: emptyFn,
+
+	getEl: function() {
+		return this.$el;
+	},
+
+	getDom: function() {
+		return this.el;
+	},
+
+	getBody: function() {
+		return this.el.innerHTML;
+	},
+
+	getId: function() {
+		return this.$id;
+	},
+
+	update: function(data) {
+		this.setData(data);
+		this.renderView();
+	},
+
+	show: function() {
+		this.$el.show();
+		return this;
+	},
+
+	hide: function() {
+		this.$el.hide();
+		return this;
+	},
+
+	block: function() {
+		this.$el.addClass('ui-blocked');
+		this.undelegateEvents();
+	},
+
+	unblock: function() {
+		this.$el.removeClass('ui-blocked');
+		this.delegateEvents();
+	},
+
+	on: function( /* event, selector, fn */ ) {
+		this.$el.on.apply(this.$el, arguments);
+	},
+
+	off: function( /* event, selector, fn */ ) {
+		this.$el.off.apply(this.$el, arguments);
+	},
+
+	appendTo: function(el) {
+		this.ensureView();
+		this.$el.appendTo(el);
+	},
+
+	prependTo: function(el) {
+		this.ensureView();
+		this.$el.prependTo(el);
+	},
+
+	insertBefore: function(el) {
+		this.ensureView();
+		if (!(el instanceof $dom)) el = $dom(el);
+		el.before(this.$el);
+	},
+
+	insertAfter: function() {
+		this.ensureView();
+		if (!(el instanceof $dom)) el = $dom(el);
+		el.after(this.$el);
+	},
+
+	select: function() {
+		return this.$el.select.apply(this.$el, arguments);
+	},
 
 	before: function(fn) {
 		this.$before.push(fn);
@@ -95,199 +161,236 @@ var View = extend({
 		return this;
 	},
 
-	update: function(data) {
-		this.$data = data;
-		return this.renderView();
+	setVisible: function(value) {
+		if (value === false) {
+			this.hide();
+		} else {
+			this.show();
+		}
 	},
 
-	getEl: function() {
-		return this.$el;
+	constructor: function(options) {
+		if (this.__initialize__ === false) return;
+		this.$id = _.uniqueId('view');
+		this.$before = [];
+		this.$after = [];
+		this.createView();
+		this.doInitialize(options);
+
+		if (this.autoRender) {
+			this.renderView();
+		}
 	},
 
-	getDomEl: function() {
-		return this.el;
+	//=================
+	// Private Methods
+	//=================
+	ensureView: function() {
+		if (!this.rendered) {
+			this.renderView();
+		}
 	},
 
-	select: function() {
-		return this.$el.select.apply(this.$el, arguments);
-	},
+	doInitialize: function(options) {
+		options = _.merge({}, this.defaults || {}, options);
 
-	show: function() {
+		_.pick(options, function(value, key) {
+			if (viewOptions.test(key)) {
+				delete options[key];
+				this[key] = value;
+			}
+		}, this);
 
-	},
+		if (options.data) {
+			this.setData(options.data);
+			delete options.data;
+		}
 
-	hide: function() {
-
-	},
-
-	destroy: function() {
-
-	},
-
-	block: function() {
-
-	},
-
-	unblock: function() {
-
-	},
-
-	// ===== Private Methods =====
-	initializeTemplate: function(template) {
-		this.$template = Template.create(template || '');
-	},
-
-	initializeView: function(options) {
-		this.createDom();
+		this.options = options;
 		this.initialize(options);
 	},
 
+	getOptions: function() {
+		return this.options;
+	},
+
+	createView: function() {
+		var el = document.createElement(this.tagName);
+		this.$el = $dom(el);
+		this.el = el;
+	},
+
 	renderView: function() {
+		this.rendered = true;
+		this.applyAttributes();
+		this.applyStyles();
+		this.applyClasses();
+		this.applyTemplate();
+		this.delegateEvents();
 		this.runProcessors(this.$before);
-		this.updateDom();
 		this.render();
 		this.runProcessors(this.$after);
-		return this.el.innerHTML;
+		this.setVisible(!this.hidden);
 	},
 
 	runProcessors: function(processors) {
-		var me = this;
-		$util.each(processors, function(fn) {
-			fn.call(me, me.$data);
-		});
+		var data = this.getData();
+		_.each(processors, function(fn) {
+			fn.call(this, data);
+		}, this);
 	},
 
-	createDom: function() {
-		if (this.el) {
-			this.destroyDom();
-		}
-
-		var el = document.createElement(this.tagName);
-		el.className = this.getClassNames().join(' ');
-		this.el = el;
-		this.$el = $dom(el);
-	},
-
-	destroyDom: function() {
-		this.$el.unbind();
+	destroyView: function() {
+		this.undelegateEvents();
 		this.$el.remove();
+		this.el = this.$el = null;
 	},
 
-	updateDom: function() {
-		this.el.innerHTML = this.$template.render(this.$data, this.self.helpers);
+	applyAttributes: function() {
+		if (this.attributes !== false) {
+			this.$el.attr(this.attributes);
+		}
 	},
 
-	getClassNames: function() {
-		if (this.$classNames) {
-			return this.$classNames;
+	applyStyles: function() {
+		if (this.styles !== false) {
+			this.$el.css(this.styles);
+		}
+	},
+
+	applyClasses: function() {
+		var _self = this.self.prototype,
+			list = [],
+			sp = ' ',
+			item, ownerPrototype, cls = 'className';
+
+		if (has.call(_self, cls)) {
+			list.unshift(_self[cls]);
 		}
 
-		var list = this.getParentChain('className'),
-			result = [];
+		ownerPrototype = this.superclass;
+		while (ownerPrototype) {
+			if (has.call(ownerPrototype, cls)) {
+				item = ownerPrototype[cls];
+				if (item !== false) {
+					if (_.isArray(item)) {
+						item = item.join(sp);
+					}
 
-		$util.each(list, function(item) {
-			if (typeof item === 'string') {
-				result.push(item);
-			} else if ($util.isArray(item)) {
-				result = result.concat(item);
+					list.unshift(item);
+				}
 			}
-		});
 
-		return this.$classNames = result;
-	},
-
-	getParentChain: function(property) {
-		var result = [];
-		if (has.call(this, property)) {
-			result.push(this[property]);
+			ownerPrototype = ownerPrototype.superclass;
 		}
 
-		var parent = this.superclass;
-		do {
-			if (has.call(parent, property)) {
-				result.push(parent[property]);
-			}
-			parent = parent.superclass;
-		} while (typeof parent === 'object');
+		this.$el.addClass(list.join(sp));
+	},
 
-		return result;
+	applyTemplate: function() {
+		var template = this.getTemplate(),
+			data = this.getData();
+
+		this.el.innerHTML = template.render(data, this.self.helpers);
+	},
+
+	getTemplate: function(name) {
+		if (name !== undefined) {
+			var template = this[name];
+		} else {
+			var template = this.template || '';
+		}
+
+		if (!(template instanceof Template)) {
+			template = new Template(template);
+			this[name] = template;
+		}
+
+		return template;
+	},
+
+	getData: function() {
+		return this.data;
+	},
+
+	setData: function(data) {
+		this.data = data;
+	},
+
+	delegateEvents: function() {
+		if (this.events !== false) {
+			var eventSuffix = '.delegate' + this.getId();
+
+			_.each(events, function(method, event) {
+				if (typeof method !== 'function') {
+					method = this[method];
+				}
+				if (!method) return;
+
+				var match = eventSplitter.match(event);
+				var eventName = match[1],
+					selector = match[2];
+
+				eventName += eventSuffix;
+				if (selector === '') {
+					this.$el.on(eventName, method);
+				} else {
+					this.$el.on(eventName, selector, method);
+				}
+			}, this);
+		}
+
+		return this;
+	},
+
+	undelegateEvents: function() {
+		this.$el.off('.delegate' + this.getId());
+		return this;
 	}
 });
 
-/*
-copy = function(destination, source) {
-	var name;
-	for (name in source) {
-		if (has.call(source, name)) {
-			destination[name] = source[name];
-		}
-	}
-
-	return destination;
-},
-
-generalEvents = {
-	click: true,
-	dblclick: true,
-	contextmenu: true,
-	mousedown: true,
-	mouseup: true,
-	mouseenter: true,
-	mouseleave: true,
-	mousemove: true,
-	mouseout: true,
-	mouseover: true,
-	keydown: true,
-	keypress: true,
-	keyup: true,
-	submit: true
-},
-
-formEvents = {
-	submit: true
-},
-
-inputEvents = {
-	focus: true,
-	blur: true
-};
-
-var defaultOptions = {
-	evaluate: /\{\[([\s\S]+?)\]\}/,
-	escape: /[\[]{2}([\s\S]+?)[\]]{2}/,
-	interpolate: /[\{]{2}([\s\S]+?)[}]{2}/
-};
-
-// escape
-var htmlEscapes = {
-	'&': '&amp;',
-	'<': '&lt;',
-	'>': '&gt;',
-	'"': '&quot;',
-	"'": '&#39;'
-};
-
-var reUnescapedHtml = /[&<>"']/g;
-
-function escapeHtmlChar(match) {
-	return htmlEscapes[match];
-}
-
-function escape(string) {
-	return string == null ? '' : String(string).replace(reUnescapedHtml, escapeHtmlChar);
-}
-// end escape
-
-function merge(d) {
-	var src = slice.call(arguments, 1),
-		i = 0,
-		len = src.length;
-	for (; i < len; i++) {
-		d = copy(d, src[i]);
-	}
-
-	return d;
-}
-*/
-
 exports.View = View;
+
+/**
+ * Features:
+ * - preprocessors			this.before(fn)
+ * - postprocessors			this.after(fn)
+ * - matchers				View.match(matcher, [fn])
+ * - helpers				View.helper(name, fn)
+ * - reactive				this.update(data)
+
+ * - jQuery/Zepto
+ * - lo-dash utilities
+
+ * TODO
+ * - liverange
+ */
+
+/**
+ * Config:
+ * - hidden
+ * - autoRender
+ * - styles
+ * - attributes
+ * - events
+ */
+
+/**
+ * Methods:
+ * - constructor(template, options)
+ * - initialize
+ * - render
+ * - select(selector)
+ * - getEl
+ * - getDom
+ * - getId
+ * - getBody
+ * - show
+ * - hide
+ * - destroy
+ * - block
+ * - unblock
+ * - update(data)
+ * - append/prepend(el)
+ * - insertBefore/After(el)
+ */

@@ -10,7 +10,7 @@ describe("View", function() {
 	// View.match()
 	it('should register a view matcher and render a test template', function() {
 		expect(function() {
-			View.match('<<([\s\S]+?)>>', function(match) {
+			View.match(/\{\{([\s\S]+?)\}\}/, function(match) {
 				return match;
 			});
 		}).not.toThrow();
@@ -25,12 +25,24 @@ describe("View", function() {
 		}).not.toThrow();
 	});
 
-	// View.constructor() > update()
+	/**
+	 * Covers:
+	 * - constructor, initilizeTemplate, initializeView, createDom, getClassNames, getParentChain
+	 * - update, renderView, runProcessors, updateDom, getData(), getBody()
+	 */
 	it('should render a simple view', function() {
-		var v = new View('<<test>>');
-		expect(v.update({
+		var SimpleView = View.extend({
+			template: '<span>{{test}}</span>'
+		});
+
+		var data = {
 			test: 'one'
-		})).toBe('one');
+		};
+
+		var view = new SimpleView();
+		view.update(data);
+		expect(view.getData()).toEqual(data);
+		expect(view.getBody()).toBe('<span>one</span>');
 	});
 
 	// .before()
@@ -42,7 +54,9 @@ describe("View", function() {
 			dataCheck = data;
 		});
 
-		a.update({test: true});
+		a.update({
+			test: true
+		});
 
 		expect(typeof dataCheck).toBe('object');
 		expect(dataCheck.test).toBeDefined();
@@ -50,27 +64,35 @@ describe("View", function() {
 	});
 
 	// :className
-	it('should set classNames', function() {
-		var ClassTestOne = View.extend({
-			className: 'class-one'
+	it('should set view className', function() {
+		var ClassCheck = View.extend({
+			template: '<span>test</span>',
+			className: ['one', 'two']
 		});
 
-		var ClassTestTwo = ClassTestOne.extend({
-			className: ['class-two', 'awesome']
+		var SubCheck = ClassCheck.extend({
+			className: 'three'
 		});
 
-		var a = new ClassTestOne();
-		var b = new ClassTestTwo();
+		var sub = new SubCheck();
+		// force rendering
+		sub.update({});
 
-		expect(a.getClassNames()).toEqual(['class-one']);
-		expect(a.getDomEl().className).toBe('class-one');
-
-		expect(a.getClassNames()).toEqual(['class-one', 'class-two', 'awesome']);
-		expect(a.getDomEl().className).toBe('class-one class-two awesome');
+		expect(sub.getDom().className).toBe('one two three');
 	});
 
 	// :attributes
 	it('should set view attributes', function() {
+		var AttrCheck = View.extend();
+		var str = 'title test';
+		var attr = new AttrCheck({
+			attributes: {
+				title: str
+			}
+		});
+		// force rendering
+		attr.update({});
 
+		expect(attr.getDom().title).toBe(str);
 	});
 });
