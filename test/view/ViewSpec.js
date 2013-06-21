@@ -50,7 +50,7 @@ describe("View", function() {
 		var BeforeTest = View.extend();
 		var dataCheck = false;
 		var a = new BeforeTest();
-		a.before(function(data) {
+		View.before(function(data) {
 			dataCheck = data;
 		});
 
@@ -61,6 +61,7 @@ describe("View", function() {
 		expect(typeof dataCheck).toBe('object');
 		expect(dataCheck.test).toBeDefined();
 		expect(dataCheck.test).toBe(true);
+		delete View.processors;
 	});
 
 	// :className

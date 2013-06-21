@@ -51,7 +51,29 @@ var View = extend({
 		match: function(matcher, fn) {
 			Template.registerProcessor(matcher, fn);
 			return this;
-		}
+		},
+
+		addProcessor: function(pos, fn) {
+			if (!this.processors) {
+				this.processors = {};
+			}
+
+			if (!this.processors[pos]) {
+				this.processors[pos] = [];
+			}
+
+			this.processors[pos].push(fn);
+		},
+
+		before: function(fn) {
+			this.addProcessor('before', fn);
+			return this;
+		},
+
+		after: function(fn) {
+			this.addProcessor('after', fn);
+			return this;
+		},
 	},
 
 	tagName: 'div',
@@ -75,6 +97,8 @@ var View = extend({
 
 	initialize: emptyFn,
 	render: emptyFn,
+	beforeRender: emptyFn,
+	afterRender: emptyFn,
 
 	getEl: function() {
 		return this.$el;
@@ -151,16 +175,6 @@ var View = extend({
 		return this.$el.select.apply(this.$el, arguments);
 	},
 
-	before: function(fn) {
-		this.$before.push(fn);
-		return this;
-	},
-
-	after: function(fn) {
-		this.$after.push(fn)
-		return this;
-	},
-
 	setVisible: function(value) {
 		if (value === false) {
 			this.hide();
@@ -172,8 +186,6 @@ var View = extend({
 	constructor: function(options) {
 		if (this.__initialize__ === false) return;
 		this.$id = _.uniqueId('view');
-		this.$before = [];
-		this.$after = [];
 		this.createView();
 		this.doInitialize(options);
 
@@ -227,15 +239,19 @@ var View = extend({
 		this.applyClasses();
 		this.applyTemplate();
 		this.delegateEvents();
-		this.runProcessors(this.$before);
+		this.runProcessors('before');
+		this.beforeRender();
 		this.render();
-		this.runProcessors(this.$after);
+		this.runProcessors('after');
+		this.afterRender();
 		this.setVisible(!this.hidden);
 	},
 
-	runProcessors: function(processors) {
+	runProcessors: function(name) {
+		if (!(View.processors && View.processors[name])) return;
+
 		var data = this.getData();
-		_.each(processors, function(fn) {
+		_.each(View.processors[name], function(fn) {
 			fn.call(this, data);
 		}, this);
 	},
@@ -314,6 +330,7 @@ var View = extend({
 	},
 
 	setData: function(data) {
+		data.id = this.getId();
 		this.data = data;
 	},
 
